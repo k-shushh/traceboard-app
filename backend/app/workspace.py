@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .database import get_db
 from .models import Workspace, User, Project, Notification
 from .security import current_user
-from .schemas import ProjectInput
+from .schemas import ProjectInput, ProjectEdit
 from .services import serialize
 
 router = APIRouter(prefix="/api", tags=["Workspace"])
@@ -44,6 +44,27 @@ def project(
 ):
     item = Project(name=data.name, workspace_id=user.workspace_id)
     db.add(item)
+    db.commit()
+    return serialize(item)
+
+
+@router.put("/projects/{project_id}")
+def rename_project(
+    project_id: str,
+    data: ProjectEdit,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    item = db.scalar(
+        select(Project)
+        .where(Project.id == project_id, Project.workspace_id == user.workspace_id)
+        .with_for_update()
+    )
+    if not item:
+        raise HTTPException(404, "Project not found.")
+    if item.name != data.expected_name:
+        raise HTTPException(409, "This project was renamed. Close and reopen the dialog to load its current name.")
+    item.name = data.name
     db.commit()
     return serialize(item)
 

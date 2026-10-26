@@ -50,6 +50,10 @@ class ProjectInput(Input):
     name: str = Field(min_length=2, max_length=100)
 
 
+class ProjectEdit(ProjectInput):
+    expected_name: str = Field(min_length=2, max_length=100)
+
+
 class ProfileEdit(Input):
     name: str = Field(min_length=2, max_length=80)
 

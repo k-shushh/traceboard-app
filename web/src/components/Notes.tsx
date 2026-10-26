@@ -138,7 +138,7 @@ export function NoteEditor({
       setBusy(false);
     }
   }
-  async function suggest(useAI = false) {
+  async function suggest(useAI = true) {
     if (!saved) return;
     setBusy(true);
     setError('');
@@ -283,8 +283,8 @@ export function NoteEditor({
           <EditorContent editor={editor} />
         </div>
         <p className="muted small-text">
-          Tip: use action lines like “Fix the retrieval timeout” or “Review the evaluation set” to
-          suggest tasks.
+          Write naturally or use a numbered list. Save your note, then let Groq suggest tasks for
+          you to review and create.
         </p>
         {error && (
           <p className="error" role="alert">
@@ -292,19 +292,26 @@ export function NoteEditor({
           </p>
         )}
         <p className="muted small-text">
-          Groq receives this saved note only when you choose Generate with Groq.
+          Find tasks with Groq sends this saved note to Groq. Tasks are created after your review.
         </p>
-        <button disabled={busy || dirty || !saved} onClick={() => void suggest(true)}>
-          <Sparkles size={16} /> Generate with Groq
+        <button
+          className="primary"
+          disabled={busy || dirty || !saved}
+          onClick={() => void suggest()}
+          title={dirty ? 'Save your changes first' : 'Generate task suggestions with Groq'}
+        >
+          <Sparkles size={16} /> Find tasks with Groq
         </button>
         <div className="modal-actions spread">
           <button
             disabled={busy || dirty || !saved}
-            onClick={() => void suggest()}
-            title={dirty ? 'Save your changes first' : 'Review suggested tasks'}
+            onClick={() => void suggest(false)}
+            title={
+              dirty ? 'Save your changes first' : 'Use local rules without sending the note to Groq'
+            }
           >
             <Sparkles size={16} />
-            Find tasks in note
+            Use local suggestions instead
           </button>
           <div className="row">
             <span className="muted small-text">
@@ -323,9 +330,9 @@ export function NoteEditor({
             {!drafts.length && (
               <div className="empty-state">
                 <Sparkles />
-                <h3>No clear action lines yet</h3>
+                <h3>No task suggestions found</h3>
                 <p>
-                  Add a line starting with “Build”, “Fix”, “Review”, or “TODO:”, then save and try
+                  Describe what needs to change or add a numbered action list, then save and try
                   again.
                 </p>
               </div>

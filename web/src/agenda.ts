@@ -13,12 +13,13 @@ export function dateLabel(value: string): string {
   }).format(new Date(`${value}T12:00:00`));
 }
 
-export function buildAgenda(
+export function dateBoardTasks(
   tasks: Task[],
   userId: string,
-  through: string,
+  date: string,
   today: string,
-  showCompleted: boolean,
+  includeOverdue: boolean,
+  includeUndated: boolean,
 ) {
   const mine = tasks.filter(
     (task) =>
@@ -26,30 +27,14 @@ export function buildAgenda(
       (task.assignee_ids || [task.assignee_id]).includes(userId) ||
       (task.private && task.owner_id === userId),
   );
-  const dated = mine.filter((task) => task.deliverable_date && task.deliverable_date <= through);
-  const pending = dated.filter((task) => task.status !== 'done');
-  const overdue = pending.filter((task) => task.deliverable_date! < today);
-  const overdueIds = new Set(overdue.map((task) => task.id));
-  const scheduled = dated.filter(
-    (task) => !overdueIds.has(task.id) && (showCompleted || task.status !== 'done'),
+  return mine.filter(
+    (task) =>
+      task.deliverable_date === date ||
+      (includeUndated && !task.deliverable_date) ||
+      (includeOverdue &&
+        task.status !== 'done' &&
+        task.deliverable_date &&
+        task.deliverable_date < today &&
+        task.deliverable_date < date),
   );
-  const unscheduled = mine.filter(
-    (task) => !task.deliverable_date && (showCompleted || task.status !== 'done'),
-  );
-  const group = (items: Task[]) =>
-    [...new Set(items.map((task) => task.deliverable_date!))].sort().map((date) => ({
-      date,
-      tasks: items
-        .filter((task) => task.deliverable_date === date)
-        .sort((a, b) => a.number - b.number),
-    }));
-  return {
-    pending: pending.length,
-    overdue: group(overdue),
-    scheduled: group(scheduled),
-    unscheduled,
-    later: mine.filter(
-      (task) => task.deliverable_date && task.deliverable_date > through && task.status !== 'done',
-    ).length,
-  };
 }

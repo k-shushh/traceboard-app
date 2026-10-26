@@ -2518,3 +2518,214 @@ select optgroup {
     flex-wrap: wrap;
   }
 }
+
+/* Compact status boards and per-user presentation controls. */
+.board-view-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+.board-view-controls button {
+  font-size: 12px;
+  padding: 7px 10px;
+}
+.board-view-controls .checkbox-label {
+  margin-left: 0;
+  font-size: 12px;
+}
+.board-visible-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.board-visibility-note {
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.lane-hidden-count {
+  font-size: 11px;
+  color: var(--muted);
+}
+.compact-task {
+  padding: 12px;
+  border-color: var(--line);
+  border-left: 3px solid var(--priority-border);
+  background: var(--surface);
+  box-shadow: none;
+}
+.compact-task.hidden-task {
+  border-style: dashed;
+}
+.compact-task .card-top {
+  margin-bottom: 6px;
+}
+.card-tools {
+  gap: 7px;
+}
+.card-priority {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+.card-expand {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  justify-content: space-between;
+  font-weight: 500;
+}
+.card-expand svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--muted);
+}
+.compact-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin-top: 10px;
+}
+.compact-card-meta .project-tag {
+  padding: 0;
+  border: 0;
+  font-size: 11px;
+  max-width: 100%;
+}
+.compact-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.compact-date.overdue {
+  color: var(--urgent-border);
+}
+.compact-card-meta .assignee-avatars {
+  margin-left: auto;
+}
+.compact-card-meta .avatar {
+  width: 23px;
+  height: 23px;
+  font-size: 10px;
+  border-color: var(--surface);
+}
+.expanded-card-details {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.expanded-card-details[hidden] {
+  display: none;
+}
+.expanded-card-details .card-description {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  font-size: 12px;
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.card-owner-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+.card-owner-detail span:first-child {
+  color: var(--muted);
+}
+.card-owner-detail span:last-child {
+  text-align: right;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.card-status-label {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.card-status-label .card-status {
+  width: 125px;
+  max-width: 70%;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-size: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+.card-detail-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.card-detail-actions button {
+  font-size: 11px;
+  padding: 7px 8px;
+}
+.date-board .agenda-toolbar {
+  border-radius: 10px;
+  gap: 10px;
+}
+.date-board .checkbox-label {
+  margin-left: 0;
+  font-size: 12px;
+}
+.date-board-summary {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 12px 0 18px;
+}
+.project-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.project-nav-row > button:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.project-nav .project-nav-row .project-rename-button {
+  flex: none;
+  width: 30px;
+  min-width: 30px;
+  padding: 8px;
+  justify-content: center;
+}
+.rename-project-filter {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+@media (max-width: 760px) {
+  .board-view-controls {
+    gap: 10px;
+  }
+  .compact-task {
+    padding: 12px;
+  }
+  .date-board .agenda-toolbar {
+    gap: 10px;
+  }
+  .card-detail-actions button {
+    min-height: 40px;
+  }
+  .card-status-label .card-status {
+    min-height: 40px;
+  }
+  .project-nav-row .project-rename-button {
+    min-height: 40px;
+  }
+}

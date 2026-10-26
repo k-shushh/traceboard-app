@@ -12,10 +12,12 @@ React · TypeScript · Vite · FastAPI · PostgreSQL
 | --- | --- |
 | **Task Board** | Move tasks, bugs, and experiments between To do, In progress, and Done using drag handles, keyboard controls, or a card's status selector. |
 | **Team and personal views** | Switch between shared work and your personal view. Private tasks and notes are protected by server-side access checks. |
-| **My Board** | Choose a cutoff date and see assigned work grouped into Scheduled, Unscheduled, and Overdue. Include completed tasks when reviewing past work. |
+| **My Board** | Choose a due date and see your assigned work in To do, In progress, and Done. Optionally include unfinished overdue work and tasks without a due date. |
+| **Compact cards** | Expand a task to read its details, edit it, or change status. Collapse all cards when you need a quick overview. |
+| **Completed-task visibility** | Hide all done tasks or hide individual completed cards, then show and restore them later. These preferences belong to your account in the current browser. |
 | **Deliverable dates** | Add an optional due date. Undated work stays visible, and unfinished overdue tasks remain available. |
 | **Shared assignments** | Assign one teammate, several teammates, or everyone. Cards show the assigned people. |
-| **Projects and filters** | Organize work by project, search tasks, and narrow the board by priority. |
+| **Projects and filters** | Organize work by project, search tasks, and narrow the board by priority. Rename a project with its sidebar pencil or the selected project's Rename project button; existing task and note links are preserved. |
 | **Project notes** | Capture decisions and action items in a rich-text editor, with shared and personal visibility. |
 | **Mentions and notifications** | Mention teammates in supported task and note content and receive in-app notifications for mentions and assignments. |
 | **Completion insights** | Review daily, weekly, and monthly completions, recent completed tasks, and current workload. |
@@ -27,10 +29,12 @@ Moving a card changes its status and position, not its priority or deliverable d
 
 Two explicit actions use Groq:
 
-- **Notes to tasks:** generate suggested tasks from a saved note, review and edit the drafts, then choose which ones to create.
+- **Notes to tasks:** save a note and choose **Find tasks with Groq**, review and edit the drafts, then choose **Create selected tasks**. **Use local suggestions instead** is a separate fallback.
 - **Progress recap:** generate a short written recap from the selected completion insights.
 
 Generated drafts do not create or assign tasks automatically. Local task extraction and numeric insights remain available without Groq. Provider requests run through the authenticated backend; the browser never receives the API key.
+
+See [notes-to-tasks setup and diagnostics](docs/NOTES-TO-TASKS.md) for configuration, error codes, and verification details.
 
 ## Designed for everyday use
 
@@ -38,7 +42,7 @@ The interface pairs **Honey & Charcoal** with restrained **rose-gold** accents. 
 
 Task priorities use distinct coloured borders and subtle matching backgrounds, with the same colour families across both themes. Priority is also included in accessible card labels.
 
-On phones, the Task Board uses status tabs to keep cards readable, with bottom navigation for Tasks, My Board, Notes, and Insights. Date-based agenda groups stack vertically on smaller screens.
+On phones, both boards use status tabs to keep cards readable, with bottom navigation for Tasks, My Board, Notes, and Insights. My Board's date controls remain available above the status tabs. Hidden cards are a view preference, not deleted tasks; a reopened or updated task becomes visible again unless the Hide done filter applies.
 
 ## How the application fits together
 

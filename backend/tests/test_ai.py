@@ -68,8 +68,45 @@ def test_provider_failures_are_safe(monkeypatch, mode):
     mock_provider(monkeypatch, response)
     with pytest.raises(HTTPException) as error:
         ai.generate("Return JSON", {}, ai.Suggestions)
-    assert error.value.status_code == 502
+    assert error.value.status_code == (504 if mode == "timeout" else 502)
     assert "secret" not in error.value.detail and "unit-test" not in error.value.detail
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 413, 422, 429, 500, 503])
+def test_provider_errors_are_actionable_without_leaking_data(monkeypatch, caplog, status):
+    mock_provider(monkeypatch, lambda request: httpx.Response(status, text="secret-provider-detail"))
+    with pytest.raises(HTTPException) as error:
+        ai.generate("private-note-text", {}, ai.Suggestions)
+    assert f"groq_http_{status}" in error.value.detail
+    assert f"groq_http_{status}" in caplog.text
+    for secret in ["secret-provider-detail", "unit-test-placeholder", "private-note-text"]:
+        assert secret not in error.value.detail + caplog.text
+
+
+@pytest.mark.parametrize("model", ["", "   ", " llama-3.3-70b-versatile \n"])
+def test_model_configuration_is_normalized(monkeypatch, model):
+    monkeypatch.setenv("GROQ_MODEL", model)
+    def response(request):
+        body = json.loads(request.content)
+        assert body["model"] == "llama-3.3-70b-versatile"
+        assert '"additionalProperties": false' in body["messages"][0]["content"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"drafts":[]}'}}]})
+    mock_provider(monkeypatch, response)
+    assert ai.generate("Return JSON", {}, ai.Suggestions).drafts == []
+
+
+def test_connection_and_truncation_have_distinct_errors(monkeypatch):
+    def response(request):
+        raise httpx.ConnectError("secret", request=request)
+    mock_provider(monkeypatch, response)
+    with pytest.raises(HTTPException, match="groq_connection"):
+        ai.generate("Return JSON", {}, ai.Suggestions)
+
+
+def test_truncated_response_is_not_accepted(monkeypatch):
+    mock_provider(monkeypatch, lambda request: httpx.Response(200, json={"choices": [{"finish_reason": "length", "message": {"content": '{"drafts":[]}'}}]}))
+    with pytest.raises(HTTPException, match="groq_truncated"):
+        ai.generate("Return JSON", {}, ai.Suggestions)
 
 
 def test_ai_requires_login_and_configuration(clients, monkeypatch):

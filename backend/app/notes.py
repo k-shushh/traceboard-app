@@ -1,4 +1,4 @@
-import re
+from .note_extraction import local_titles
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -78,22 +78,10 @@ def drafts(
     item_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     note = accessible(db, Note, item_id, user)
-    candidates = []
-    for line in note.plain_text.splitlines():
-        text = re.sub(r"^\s*([-*•]|\d+\.)?\s*(\[ \])?\s*", "", line).strip()
-        if re.search(r"^\s*([-*•]\s*)?\[[xX]\]", line):
-            continue
-        if len(text) > 5 and re.match(
-            r"(?i)^(todo\s*:|action\s*:|build\b|fix\b|add\b|test\b|review\b|update\b|investigate\b|create\b|ship\b|write\b|evaluate\b|implement\b)",
-            text,
-        ):
-            candidates.append(
-                {
-                    "title": re.sub(r"(?i)^(todo|action)\s*:\s*", "", text)[:200],
-                    "priority": "normal",
-                    "assignee_id": user.id if note.private else None,
-                }
-            )
+    candidates = [
+        {"title": title, "priority": "normal", "assignee_id": user.id if note.private else None}
+        for title in local_titles(note.content, note.plain_text)
+    ]
     return {
         "drafts": candidates[:10],
         "version": note.version,

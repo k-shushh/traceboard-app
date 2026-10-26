@@ -18,6 +18,7 @@ import {
   Folder,
   X,
   CheckCheck,
+  Pencil,
 } from 'lucide-react';
 import { api, ApiError } from './api';
 import { Auth } from './components/Auth';
@@ -27,6 +28,7 @@ import { Select } from './components/Select';
 import { Modal } from './components/Modal';
 import { ProfileMenu } from './components/ProfileMenu';
 import { MyBoard } from './components/MyBoard';
+import { useBoardPreferences } from './useBoardPreferences';
 import { AdminPanel } from './components/AdminPanel';
 import { ChangePassword, EditProfile, SettingsDialog } from './components/AccountDialogs';
 import {
@@ -52,7 +54,8 @@ const Insights = lazy(() => import('./components/Insights').then((m) => ({ defau
 type Dialog =
   | { type: 'task'; task?: Task; status?: Status }
   | { type: 'note'; note?: Note }
-  | { type: 'team' | 'project' | 'inbox' | 'profile' | 'settings' }
+  | { type: 'project'; project?: Project }
+  | { type: 'team' | 'inbox' | 'profile' | 'settings' }
   | null;
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -72,6 +75,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const boardView = useBoardPreferences(user ? `${user.workspace_id}:${user.id}` : 'signed-out');
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('traceboard-theme', theme);
@@ -392,15 +396,24 @@ export default function App() {
           {projectsOpen && (
             <div id="sidebar-projects" className="project-list">
               {data.projects.map((p) => (
-                <button
-                  key={p.id}
-                  title={p.name}
-                  className={projectId === p.id ? 'selected' : ''}
-                  onClick={() => setProjectId(p.id)}
-                >
-                  <span className="project-bullet" />
-                  {p.name}
-                </button>
+                <div className="project-nav-row" key={p.id}>
+                  <button
+                    title={p.name}
+                    className={projectId === p.id ? 'selected' : ''}
+                    onClick={() => setProjectId(p.id)}
+                  >
+                    <span className="project-bullet" />
+                    {p.name}
+                  </button>
+                  <button
+                    className="project-rename-button"
+                    aria-label={`Rename ${p.name}`}
+                    title={`Rename ${p.name}`}
+                    onClick={() => setDialog({ type: 'project', project: p })}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
               ))}
               {!data.projects.length && <small className="project-empty">No projects</small>}
             </div>
@@ -502,6 +515,20 @@ export default function App() {
                 ...data.projects.map((p) => ({ value: p.id, label: p.name })),
               ]}
             />
+            {projectId && (
+              <button
+                className="rename-project-filter"
+                onClick={() =>
+                  setDialog({
+                    type: 'project',
+                    project: data.projects.find((p) => p.id === projectId),
+                  })
+                }
+              >
+                <Pencil size={14} />
+                Rename project
+              </button>
+            )}
             {(page === 'board' || page === 'agenda') && (
               <Select
                 label="Filter priority"
@@ -551,6 +578,8 @@ export default function App() {
           {page === 'board' && (
             <>
               <Board
+                key={user.id}
+                view={boardView}
                 tasks={filtered}
                 members={data.members}
                 projects={data.projects}
@@ -563,9 +592,15 @@ export default function App() {
           )}
           {page === 'agenda' && (
             <MyBoard
+              key={user.id}
               tasks={filtered}
               user={user}
               projects={data.projects}
+              members={data.members}
+              busy={busy}
+              view={boardView}
+              onMove={move}
+              onCreate={(status) => setDialog({ type: 'task', status })}
               onEdit={(task) => setDialog({ type: 'task', task })}
             />
           )}
@@ -649,7 +684,14 @@ export default function App() {
         )}
       </Suspense>
       {dialog?.type === 'project' && (
-        <ProjectDialog onClose={() => setDialog(null)} onSaved={saved} />
+        <ProjectDialog
+          project={dialog.project}
+          onClose={() => {
+            setDialog(null);
+            void refresh();
+          }}
+          onSaved={saved}
+        />
       )}
       {dialog?.type === 'team' && (
         <TeamDialog user={user} data={data} onClose={() => setDialog(null)} onLogout={logout} />
@@ -718,19 +760,35 @@ export default function App() {
   );
 }
 
-function ProjectDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function ProjectDialog({
+  project,
+  onClose,
+  onSaved,
+}: {
+  project?: Project;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   return (
-    <Modal title="Create a project" onClose={onClose}>
+    <Modal
+      title={project ? 'Rename project' : 'Create a project'}
+      onClose={busy ? () => {} : onClose}
+    >
       <form
         className="modal-body"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (busy) return;
           setBusy(true);
-          const name = new FormData(e.currentTarget).get('name');
+          setError('');
+          const name = String(new FormData(e.currentTarget).get('name') || '').trim();
           try {
-            await api('/projects', 'POST', { name });
+            await api(project ? `/projects/${project.id}` : '/projects', project ? 'PUT' : 'POST', {
+              name,
+              ...(project ? { expected_name: project.name } : {}),
+            });
             onSaved();
           } catch (e) {
             setError((e as Error).message);
@@ -743,6 +801,8 @@ function ProjectDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           Project name
           <input
             name="name"
+            defaultValue={project?.name || ''}
+            disabled={busy}
             autoFocus
             required
             minLength={2}
@@ -756,8 +816,11 @@ function ProjectDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           </p>
         )}
         <div className="modal-actions">
+          <button type="button" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
           <button className="primary" disabled={busy}>
-            Create project
+            {busy ? 'Saving…' : project ? 'Save name' : 'Create project'}
           </button>
         </div>
       </form>
