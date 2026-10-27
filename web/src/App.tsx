@@ -29,6 +29,7 @@ import { Modal } from './components/Modal';
 import { ProfileMenu } from './components/ProfileMenu';
 import { MyBoard } from './components/MyBoard';
 import { useBoardPreferences } from './useBoardPreferences';
+import { palettes } from './themes';
 import { AdminPanel } from './components/AdminPanel';
 import { ChangePassword, EditProfile, SettingsDialog } from './components/AccountDialogs';
 import {
@@ -61,6 +62,14 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [booting, setBooting] = useState(true);
   const [theme, setTheme] = useState(() => localStorage.getItem('traceboard-theme') || 'light');
+  const [palette, setPalette] = useState(() => {
+    const saved = localStorage.getItem('traceboard-palette');
+    return palettes.some((p) => p.id === saved) ? saved! : 'honey';
+  });
+  useEffect(() => {
+    document.documentElement.dataset.palette = palette;
+    localStorage.setItem('traceboard-palette', palette);
+  }, [palette]);
   const [data, setData] = useState<WorkspaceData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -652,6 +661,7 @@ export default function App() {
       )}
       {dialog?.type === 'task' && (
         <TaskDialog
+          key={dialog.task?.id || 'new-task'}
           task={dialog.task}
           status={dialog.status}
           projectId={projectId}
@@ -660,6 +670,8 @@ export default function App() {
           projects={data.projects}
           onClose={() => setDialog(null)}
           onSaved={saved}
+          onOpen={(task) => setDialog({ type: 'task', task })}
+          onChanged={() => void refresh()}
         />
       )}
       <Suspense fallback={<div className="toast">Opening editor…</div>}>
@@ -708,7 +720,13 @@ export default function App() {
         />
       )}
       {dialog?.type === 'settings' && (
-        <SettingsDialog theme={theme} onTheme={setTheme} onClose={() => setDialog(null)} />
+        <SettingsDialog
+          theme={theme}
+          onTheme={setTheme}
+          palette={palette}
+          onPalette={setPalette}
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog?.type === 'inbox' && (
         <Modal title="Your inbox" onClose={() => setDialog(null)}>

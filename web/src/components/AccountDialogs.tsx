@@ -3,6 +3,7 @@ import { Sun, Moon } from 'lucide-react';
 import { Modal } from './Modal';
 import { api } from '../api';
 import type { User } from '../types';
+import { palettes } from '../themes';
 
 export function EditProfile({
   user,
@@ -179,15 +180,40 @@ export function ChangePassword({
 export function SettingsDialog({
   theme,
   onTheme,
+  palette,
+  onPalette,
   onClose,
 }: {
   theme: string;
   onTheme: (theme: string) => void;
+  palette: string;
+  onPalette: (palette: string) => void;
   onClose: () => void;
 }) {
   return (
     <Modal title="Settings" onClose={onClose}>
       <div className="modal-body">
+        <h3>Color theme</h3>
+        <div className="palette-options">
+          {palettes.map((option) => (
+            <button
+              key={option.id}
+              aria-pressed={palette === option.id}
+              className={palette === option.id ? 'selected' : ''}
+              onClick={() => onPalette(option.id)}
+            >
+              <span className="palette-swatches" aria-hidden="true">
+                {option.colors.map((color) => (
+                  <span key={color} style={{ background: color }} />
+                ))}
+              </span>
+              <span>{option.name}</span>
+            </button>
+          ))}
+        </div>
+        <p className="muted small-text">
+          Your theme and light/dark preference are saved in this browser.
+        </p>
         <h3>Appearance</h3>
         <div className="theme-options">
           <button

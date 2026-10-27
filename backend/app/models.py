@@ -132,12 +132,25 @@ class Task(Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
     version: Mapped[int] = mapped_column(Integer, default=1)
     source_note_id: Mapped[str | None] = mapped_column(ForeignKey("notes.id"))
+    parent_task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     __table_args__ = (
         UniqueConstraint("workspace_id", "number"),
         Index("ix_task_board", "workspace_id", "status", "position"),
     )
+
+
+class TaskActivity(Base):
+    __tablename__ = "task_activity"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), index=True)
+    author_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    kind: Mapped[str] = mapped_column(String(12), default="comment")
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    converted_task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"))
 
 
 class TaskAssignee(Base):

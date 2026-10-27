@@ -26,6 +26,7 @@ export type Task = {
   project_id: string | null;
   owner_id: string;
   source_note_id: string | null;
+  parent_task_id?: string | null;
   position: number;
   version: number;
 };

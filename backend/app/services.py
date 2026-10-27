@@ -13,6 +13,7 @@ from .models import (
     Notification,
     Completion,
     TaskAssignee,
+    TaskActivity,
     now,
 )
 
@@ -21,6 +22,7 @@ def visible(model, user):
     return (
         model.workspace_id == user.workspace_id,
         or_(model.private.is_(False), model.owner_id == user.id),
+        *((model.deleted_at.is_(None),) if model is Task else ()),
     )
 
 
@@ -231,9 +233,14 @@ def new_task(db, user, values):
     set_assignees(task, ids)
     db.add(task)
     db.flush()
+    log_activity(db, task, user, "Created this item.")
     mark_completion(db, task, None)
     notify_changes(db, task, user, task.description)
     return task
+
+
+def log_activity(db, task, user, body):
+    db.add(TaskActivity(task_id=task.id, author_id=user.id, kind="event", body=body))
 
 
 def validate_document(doc):

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from './Modal';
+import { TaskActivity } from './TaskActivity';
 import { Select } from './Select';
 import { AssigneeSelect } from './AssigneeSelect';
 import { AlignLeft, CalendarDays, Circle, Flag, Folder, Lock, Tag, Users } from 'lucide-react';
@@ -24,6 +25,8 @@ export function TaskDialog({
   projects,
   onClose,
   onSaved,
+  onOpen,
+  onChanged,
 }: {
   task?: Task;
   status?: Status;
@@ -33,6 +36,8 @@ export function TaskDialog({
   projects: Project[];
   onClose: () => void;
   onSaved: () => void;
+  onOpen: (task: Task) => void;
+  onChanged: () => void;
 }) {
   const [form, setForm] = useState<TaskInput>(
     task
@@ -67,6 +72,20 @@ export function TaskDialog({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  async function remove() {
+    if (!task || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/tasks/${task.id}`, 'DELETE', { version: task.version });
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const change = <K extends keyof TaskInput>(key: K, value: TaskInput[K]) =>
     setForm((old) => ({ ...old, [key]: value }));
   async function save(e: FormEvent) {
@@ -89,7 +108,7 @@ export function TaskDialog({
     <Modal
       title={task ? `TB-${String(task.number).padStart(3, '0')} · Task details` : 'New task'}
       className="task-modal"
-      onClose={onClose}
+      onClose={busy ? () => {} : onClose}
     >
       <form onSubmit={save} className="task-editor">
         <div className="task-writing">
@@ -267,6 +286,34 @@ export function TaskDialog({
           </p>
         )}
       </form>
+      {task && (
+        <>
+          <TaskActivity task={task} onOpen={onOpen} onChanged={onChanged} />
+          <div className="task-delete-area">
+            {confirmDelete ? (
+              <div role="alert">
+                <h3>Delete this {task.kind}?</h3>
+                <p>
+                  “{task.title}” and its comments will no longer be available on the board. Subtasks
+                  will remain as standalone tasks. This cannot be undone in the app.
+                </p>
+                <div className="row">
+                  <button disabled={busy} onClick={() => setConfirmDelete(false)}>
+                    Keep item
+                  </button>
+                  <button className="danger" disabled={busy} onClick={() => void remove()}>
+                    {busy ? 'Deleting…' : 'Confirm delete'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="danger" disabled={busy} onClick={() => setConfirmDelete(true)}>
+                Delete {task.kind}
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

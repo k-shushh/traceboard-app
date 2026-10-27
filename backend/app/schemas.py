@@ -96,6 +96,18 @@ class Move(Input):
     version: int = Field(ge=1)
 
 
+class TaskDelete(Input):
+    version: int = Field(ge=1)
+
+
+class CommentInput(Input):
+    body: str = Field(min_length=1, max_length=10000)
+
+
+class CommentConvert(Input):
+    title: str = Field(min_length=1, max_length=200)
+
+
 class NoteInput(Input):
     title: str = Field(min_length=1, max_length=200)
     content: dict = Field(

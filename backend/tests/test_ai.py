@@ -83,12 +83,22 @@ def test_provider_errors_are_actionable_without_leaking_data(monkeypatch, caplog
         assert secret not in error.value.detail + caplog.text
 
 
-@pytest.mark.parametrize("model", ["", "   ", " llama-3.3-70b-versatile \n"])
-def test_model_configuration_is_normalized(monkeypatch, model):
-    monkeypatch.setenv("GROQ_MODEL", model)
+@pytest.mark.parametrize("model, expected", [
+    (None, "openai/gpt-oss-120b"),
+    ("", "openai/gpt-oss-120b"),
+    ("   ", "openai/gpt-oss-120b"),
+    (" openai/gpt-oss-120b \n", "openai/gpt-oss-120b"),
+    (" openai/gpt-oss-20b \n", "openai/gpt-oss-20b"),
+    (" llama-3.3-70b-versatile \n", "llama-3.3-70b-versatile"),
+])
+def test_model_configuration_is_normalized(monkeypatch, model, expected):
+    if model is None:
+        monkeypatch.delenv("GROQ_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("GROQ_MODEL", model)
     def response(request):
         body = json.loads(request.content)
-        assert body["model"] == "llama-3.3-70b-versatile"
+        assert body["model"] == expected
         assert '"additionalProperties": false' in body["messages"][0]["content"]
         return httpx.Response(200, json={"choices": [{"message": {"content": '{"drafts":[]}'}}]})
     mock_provider(monkeypatch, response)

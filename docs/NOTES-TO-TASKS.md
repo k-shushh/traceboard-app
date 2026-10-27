@@ -12,9 +12,17 @@ as Remove/Reduce/Put, and skips checked-off items and standalone mentions. Local
 rules can also include contextual list items, so review the drafts before saving.
 
 The hosted backend needs `GROQ_API_KEY`. `GROQ_MODEL` is optional and defaults to
-`llama-3.3-70b-versatile`; blank values use the default and surrounding whitespace
+`openai/gpt-oss-120b`; blank values use the default and surrounding whitespace
 is removed. After changing hosted environment variables, redeploy the backend.
 Do not put keys in frontend variables or source control.
+
+Groq retired `llama-3.3-70b-versatile` for free and developer tiers on August 16,
+2026. If an older deployment has that value explicitly configured, change
+`GROQ_MODEL` to `openai/gpt-oss-120b` and redeploy. A hosted environment value
+overrides the code default, so uploading code alone will not fix a stale setting.
+The provider remains Groq and uses your existing Groq key; no OpenAI key is needed.
+Explicit model overrides are preserved, including for enterprise accounts.
+See [Groq's deprecation notice](https://console.groq.com/docs/deprecations).
 
 ## Diagnosing a failed request
 

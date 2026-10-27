@@ -118,6 +118,7 @@ function Card({
         {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
       <div className="compact-card-meta">
+        {task.parent_task_id && <span className="tag">Subtask</span>}
         <span className="project-tag">
           {project?.name || (task.private ? 'Personal' : 'Workspace')}
         </span>
@@ -186,6 +187,9 @@ function Card({
           <button onClick={() => onEdit(task)} disabled={busy}>
             <Pencil size={13} />
             Edit task
+          </button>
+          <button onClick={() => onEdit(task)} disabled={busy}>
+            Comments & activity
           </button>
           {task.status === 'done' && (
             <button onClick={() => view.toggleTask(task)}>

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 from .database import get_db
-from .models import Task, User, Workspace, now
-from .schemas import TaskInput, TaskEdit, Move
+from .models import Task, TaskActivity, Notification, User, Workspace, now
+from .schemas import TaskInput, TaskEdit, Move, TaskDelete, CommentInput, CommentConvert
 from .security import current_user
 from .services import (
     visible,
@@ -17,6 +17,7 @@ from .services import (
     serialize,
     notify_changes,
     mark_completion,
+    log_activity,
 )
 
 router = APIRouter(prefix="/api/tasks", tags=["Tasks"])
@@ -63,6 +64,9 @@ def update(
     old_ids = assignee_ids(task)
     old_status, old_text, old_assignee = task.status, task.description, task.assignee_id
     old_assign_all = task.assign_all
+    changed = [key.replace('_', ' ') for key, value in values.items() if getattr(task, key) != value]
+    if set(ids) != set(old_ids):
+        changed.append("assignees")
     for key, value in values.items():
         setattr(task, key, value)
     if task.private:
@@ -71,6 +75,9 @@ def update(
     task.updated_at = now()
     task.version += 1
     mark_completion(db, task, old_status)
+    if changed:
+        detail = f" Status: {old_status} → {task.status}." if old_status != task.status else ""
+        log_activity(db, task, user, "Updated " + ", ".join(changed) + "." + detail)
     notify_changes(
         db,
         task,
@@ -107,6 +114,7 @@ def move(
                 Task.workspace_id == user.workspace_id,
                 Task.status == data.status,
                 Task.id != task.id,
+                Task.deleted_at.is_(None),
             )
             .order_by(Task.position, Task.number)
         )
@@ -122,5 +130,84 @@ def move(
     task.version += 1
     task.updated_at = now()
     mark_completion(db, task, old_status)
+    if old_status != task.status:
+        log_activity(db, task, user, f"Changed status: {old_status} → {task.status}.")
     db.commit()
     return serialize(task)
+
+
+@router.get("/{item_id}/activity")
+def activity(item_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    task = accessible(db, Task, item_id, user)
+    entries = []
+    for entry, author in db.execute(
+        select(TaskActivity, User.name).join(User, TaskActivity.author_id == User.id)
+        .where(TaskActivity.task_id == task.id)
+        .order_by(TaskActivity.created_at, TaskActivity.id)
+    ):
+        item = serialize(entry)
+        item["author_name"] = author
+        child = db.get(Task, entry.converted_task_id) if entry.converted_task_id else None
+        item["converted_task"] = serialize(child) if child and not child.deleted_at else None
+        entries.append(item)
+    parent = db.get(Task, task.parent_task_id) if task.parent_task_id else None
+    return {
+        "entries": entries,
+        "parent": serialize(parent) if parent and not parent.deleted_at else None,
+        "subtasks": [serialize(child) for child in db.scalars(select(Task).where(
+            Task.parent_task_id == task.id, *visible(Task, user)).order_by(Task.number))],
+    }
+
+
+@router.post("/{item_id}/comments", status_code=201)
+def comment(item_id: str, data: CommentInput, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    task = accessible(db, Task, item_id, user, lock=True)
+    entry = TaskActivity(task_id=task.id, author_id=user.id, body=data.body)
+    db.add(entry)
+    # Comments are independent of task edits and do not invalidate an open editor.
+    notify_changes(db, task, user, data.body, old_assign_all=task.assign_all,
+                   old_assignee_ids=assignee_ids(task))
+    db.commit()
+    return serialize(entry)
+
+
+@router.post("/{item_id}/comments/{comment_id}/subtask")
+def convert_comment(item_id: str, comment_id: str, data: CommentConvert,
+                    user: User = Depends(current_user), db: Session = Depends(get_db)):
+    db.scalar(select(Workspace).where(Workspace.id == user.workspace_id).with_for_update())
+    parent = accessible(db, Task, item_id, user, lock=True)
+    entry = db.scalar(select(TaskActivity).where(TaskActivity.id == comment_id,
+        TaskActivity.task_id == parent.id, TaskActivity.kind == "comment").with_for_update())
+    if not entry:
+        raise HTTPException(404, "Comment not found.")
+    if entry.converted_task_id:
+        existing = db.get(Task, entry.converted_task_id)
+        if existing.deleted_at:
+            raise HTTPException(409, "The subtask created from this comment was deleted. Add a new comment to create another.")
+        return serialize(existing)
+    child = new_task(db, user, dict(title=data.title, description=entry.body,
+        parent_task_id=parent.id, project_id=parent.project_id, private=parent.private,
+        priority=parent.priority, kind="task", status="todo", assign_all=parent.assign_all,
+        assignee_ids=[] if parent.assign_all else assignee_ids(parent)))
+    entry.converted_task_id = child.id
+    log_activity(db, parent, user, f"Created subtask TB-{child.number:03d} from a comment.")
+    db.commit()
+    return serialize(child)
+
+
+@router.delete("/{item_id}")
+def remove(item_id: str, data: TaskDelete, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    db.scalar(select(Workspace).where(Workspace.id == user.workspace_id).with_for_update())
+    task = accessible(db, Task, item_id, user, lock=True)
+    check_version(task, data.version)
+    for child in db.scalars(select(Task).where(Task.parent_task_id == task.id, Task.deleted_at.is_(None))):
+        child.parent_task_id = None
+        child.version += 1
+        child.updated_at = now()
+        log_activity(db, child, user, f"Parent TB-{task.number:03d} was deleted; this is now a standalone task.")
+    task.deleted_at = now()
+    task.version += 1
+    log_activity(db, task, user, "Deleted this item.")
+    db.execute(delete(Notification).where(Notification.task_id == task.id))
+    db.commit()
+    return {"ok": True}

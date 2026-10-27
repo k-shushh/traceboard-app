@@ -93,7 +93,7 @@ The backend reads `GROQ_API_KEY`. No key belongs in a React file, a `VITE_*` var
 | `APP_ENV` | `production` | No |
 | `COOKIE_SECURE` | `true` | No |
 | `ALLOW_PUBLIC_SIGNUP` | `false` | No |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` (optional; this is the code default) | No |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` (optional; this is the code default) | No |
 
 Mark the first two as Secret/sensitive when the interface offers that setting. Select Production only for production credentials. Do not include quotation marks around values. `POSTGRES_PASSWORD`, `TEST_DATABASE_URL`, and `DIRECT_DATABASE_URL` are not needed in Vercel.
 

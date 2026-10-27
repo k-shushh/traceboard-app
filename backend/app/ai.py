@@ -61,7 +61,7 @@ def generate(instruction: str, data: dict, schema: type[BaseModel]):
     key = os.getenv("GROQ_API_KEY", "").strip()
     if not key:
         raise provider_failure("groq_not_configured", "Groq is not configured. Set GROQ_API_KEY in the backend environment and redeploy.", 503)
-    model = os.getenv("GROQ_MODEL", "").strip() or "llama-3.3-70b-versatile"
+    model = os.getenv("GROQ_MODEL", "").strip() or "openai/gpt-oss-120b"
     try:
         # Fixed HTTPS destination, bounded output, no redirects or automatic retries.
         with httpx.Client(
