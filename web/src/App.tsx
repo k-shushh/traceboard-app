@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Layers3,
   LayoutDashboard,
@@ -21,6 +21,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { api, ApiError } from './api';
+import { placeTask, restoreTask } from './taskMoves';
 import { Auth } from './components/Auth';
 import { Board } from './components/Board';
 import { TaskDialog } from './components/TaskDialog';
@@ -72,6 +73,11 @@ export default function App() {
   }, [palette]);
   const [data, setData] = useState<WorkspaceData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const pendingMoves = useRef(new Set<string>());
+  const [movingIds, setMovingIds] = useState<string[]>([]);
+  const taskRevision = useRef(0);
+  const session = useRef(user?.id);
+  session.current = user?.id;
   const [notes, setNotes] = useState<Note[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [scope, setScope] = useState<Scope>('team');
@@ -99,6 +105,7 @@ export default function App() {
   }, []);
   const refresh = useCallback(async () => {
     if (!user || user.must_change_password || user.is_admin_account) return;
+    const revision = ++taskRevision.current;
     try {
       const [workspace, newTasks, newNotes, inbox] = await Promise.all([
         api<WorkspaceData>('/workspace'),
@@ -106,11 +113,14 @@ export default function App() {
         api<Note[]>('/notes'),
         api<Notification[]>('/notifications'),
       ]);
+      if (session.current !== user.id) return;
       setData(workspace);
-      setTasks(newTasks);
+      // A poll started before a drop must not put the card back in its old lane.
+      if (revision === taskRevision.current && !pendingMoves.current.size) setTasks(newTasks);
       setNotes(newNotes);
       setNotifications(inbox);
     } catch (e) {
+      if (session.current !== user.id) return;
       if (e instanceof ApiError && e.status === 401) {
         setUser(null);
         setData(null);
@@ -118,6 +128,22 @@ export default function App() {
       } else setError((e as Error).message);
     }
   }, [user]);
+  async function refreshTasks() {
+    const owner = session.current;
+    const revision = ++taskRevision.current;
+    try {
+      const latest = await api<Task[]>('/tasks', 'GET', undefined, 15000);
+      if (
+        owner === session.current &&
+        revision === taskRevision.current &&
+        !pendingMoves.current.size
+      ) {
+        setTasks(latest);
+      }
+    } catch {
+      // Keep the current board usable; the regular poll will reconcile it later.
+    }
+  }
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -134,22 +160,37 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [notice]);
   async function move(task: Task, status: Status, before?: string) {
-    if (busy) return;
-    setBusy(true);
+    if (busy || pendingMoves.current.has(task.id)) return;
+    const owner = session.current;
+    const previous = tasks;
+    pendingMoves.current.add(task.id);
+    setMovingIds([...pendingMoves.current]);
+    ++taskRevision.current;
+    setTasks((current) => placeTask(current, task, status, before));
     setError('');
     try {
-      await api(`/tasks/${task.id}/move`, 'POST', {
-        status,
-        before_id: before || null,
-        version: task.version,
-      });
-      await refresh();
+      const savedTask = await api<Task>(
+        `/tasks/${task.id}/move`,
+        'POST',
+        {
+          status,
+          before_id: before || null,
+          version: task.version,
+        },
+        15000,
+      );
+      if (owner !== session.current) return;
+      setTasks((current) => current.map((item) => (item.id === task.id ? savedTask : item)));
       setNotice(`TB-${task.number} moved.`);
     } catch (e) {
-      setError((e as Error).message);
-      await refresh();
+      if (owner !== session.current) return;
+      setTasks((current) => restoreTask(current, task, previous));
+      setError(`TB-${task.number}: ${(e as Error).message}`);
     } finally {
-      setBusy(false);
+      pendingMoves.current.delete(task.id);
+      setMovingIds([...pendingMoves.current]);
+      ++taskRevision.current;
+      if (owner === session.current && !pendingMoves.current.size) void refreshTasks();
     }
   }
   async function logout() {
@@ -573,6 +614,11 @@ export default function App() {
               </button>
             </div>
           )}
+          {movingIds.length > 0 && (
+            <p className="muted small-text" role="status">
+              Saving {movingIds.length === 1 ? 'task move' : `${movingIds.length} task moves`}…
+            </p>
+          )}
           {!tasks.length && !data.projects.length && page === 'board' && (
             <div className="welcome-banner">
               <div>
@@ -593,6 +639,7 @@ export default function App() {
                 members={data.members}
                 projects={data.projects}
                 busy={busy}
+                movingIds={movingIds}
                 onEdit={(task) => setDialog({ type: 'task', task })}
                 onMove={move}
                 onCreate={(status) => setDialog({ type: 'task', status })}
@@ -607,6 +654,7 @@ export default function App() {
               projects={data.projects}
               members={data.members}
               busy={busy}
+              movingIds={movingIds}
               view={boardView}
               onMove={move}
               onCreate={(status) => setDialog({ type: 'task', status })}
@@ -683,7 +731,7 @@ export default function App() {
             members={data.members}
             projects={data.projects}
             onClose={() => setDialog(null)}
-            onSaved={() => void refresh()}
+            onSaved={saved}
             onTasks={(count) => {
               void refresh();
               setNotice(

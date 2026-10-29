@@ -283,8 +283,8 @@ export function NoteEditor({
           <EditorContent editor={editor} />
         </div>
         <p className="muted small-text">
-          Write naturally or use a numbered list. Save your note, then let Groq suggest tasks for
-          you to review and create.
+          Write naturally or use a numbered list. Saving closes this editor. Reopen a saved note
+          to let Groq suggest tasks for you to review and create.
         </p>
         {error && (
           <p className="error" role="alert">

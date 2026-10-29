@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write src vite.config.ts",
-    "test": "node --experimental-strip-types --test tests/agenda.test.ts"
+    "test": "node --experimental-strip-types --test tests/agenda.test.ts tests/taskMoves.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

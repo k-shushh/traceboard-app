@@ -46,6 +46,7 @@ export type BoardProps = {
   onMove: (task: Task, status: Status, before?: string) => void;
   onCreate: (status: Status) => void;
   busy: boolean;
+  movingIds?: string[];
   view: BoardView;
   showUndated?: boolean;
 };
@@ -56,7 +57,8 @@ function Card({
   projects,
   onEdit,
   onMove,
-  busy,
+  busy: boardBusy,
+  movingIds = [],
   view,
   expanded,
   onToggle,
@@ -68,6 +70,7 @@ function Card({
   onToggle: () => void;
   overlay?: boolean;
 }) {
+  const busy = boardBusy || movingIds.includes(task.id);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: overlay ? `preview-${task.id}` : task.id,
     disabled: busy || overlay,
